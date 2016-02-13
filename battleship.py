@@ -29,7 +29,7 @@ try:
                 print(network_table)
                 try:
                     # check that the user enterd an integer
-                    user_input = int(raw_input("Whatch you want? [1-3]: "))
+                    user_input = int(raw_input("Whatchu want? [1-3]: "))
                 except ValueError:
                     # user must choose a number, show question again
                     print("Yo, just pick a number.\n")
@@ -128,7 +128,7 @@ try:
         while True:
             try:
                 # check that the user enterd an integer
-                user_input = int(raw_input("Whatch you want? [1-4]: "))
+                user_input = int(raw_input("Whatchu want? [1-4]: "))
             except ValueError:
                 # user must choose a number, show question again
                 print("Yo, just pick a number.\n")
