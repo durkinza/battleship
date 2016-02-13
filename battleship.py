@@ -2,11 +2,12 @@
 # Author: Tanner Purves, Zane Durkin
 import os
 import sys
+import socket
 #import getopt
 #from docopt import docopt
 from prettytable import PrettyTable
 
-# Ask user if they want to be client or server
+# Build Welcome table
 welcome_table = PrettyTable(['WELCOME TO BATTLESHIP'])
 welcome_table.add_row(['1) Play on network'])
 welcome_table.add_row(['2) Vs. computer'])
@@ -14,10 +15,10 @@ welcome_table.add_row(['3) Settings'])
 welcome_table.add_row(['4) Quit'])
 welcome_table.align = 'l'
 try:
-    def menu(user_input):
+    def main_menu(user_input):
         if user_input == 1:
             # print('Network')
-            network_table = PrettyTable(['Network'])
+            network_table = PrettyTable(['BATTLESHIP Networking'])
             network_table.add_row(['1) Host a game'])
             network_table.add_row(['2) Join a game'])
             network_table.add_row(['3) Back'])
@@ -42,35 +43,48 @@ try:
                         # the number is valid, continue
                         if user_input == 1:
                             print('Setting up server')
+                            set_server()
                         elif user_input == 2:
                             print('Connecting to server')
+                            get_server()
                         elif user_input == 3:
+                            # if the user wants to go back to main menu
                             print('going back')
                             main()
                         else:
+                            # if something gets past the validation
                             print('How about no...')
 
         elif user_input == 2:
+            # if the user wants to vs a computer
             print('Vs. Computer')
             print('How about no...')
         elif user_input == 3:
+            # if the user wants to edit settings
             print('Settings')
             print('How about no...')
         elif user_input == 4:
+            # if the user wants to quit
             print('You quitter...')
             exit()
         else:
+            # if something gets past the validation
             print('How about no...')
 
     def set_server():
+       # try:
+       #     s = socket.socket()
+       # sock.bind(('', 0))
+       # port = sock.getsockname()[1]
         # function to setup server
         print('using port: ')
 
     def get_server():
         # function to connect to a server
-        print('connecting to server...')
+        print('Connecting to server...')
 
     def main():
+        # Ask user what they want
         os.system('clear')
         print(welcome_table)
         # ask for an option until a valid one is entered
@@ -89,7 +103,7 @@ try:
                     print("How about a valid number.\n")
                 else:
                     # the number is valid, continue
-                    menu(user_input)
+                    main_menu(user_input)
     if __name__ ==  "__main__":
         main()
 
