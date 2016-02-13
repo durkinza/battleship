@@ -24,9 +24,9 @@ try:
             network_table.add_row(['3) Back'])
             network_table.align = 'l'
             os.system('clear')
-            print(network_table)
             # ask for an option until a valid one is entered
             while True:
+                print(network_table)
                 try:
                     # check that the user enterd an integer
                     user_input = int(raw_input("Whatch you want? [1-3]: "))
@@ -44,9 +44,11 @@ try:
                         if user_input == 1:
                             print('Setting up server')
                             set_server()
+  #                          os.system('clear')
                         elif user_input == 2:
                             print('Connecting to server')
                             get_server()
+                            # os.system('clear')
                         elif user_input == 3:
                             # if the user wants to go back to main menu
                             print('going back')
@@ -72,12 +74,47 @@ try:
             print('How about no...')
 
     def set_server():
-       # try:
+        # funtion to setup server
+        while True:
+            # see if user would like to specify a port
+            user_input = raw_input("Use default port (2323)? [Y/n]: ")
+            if user_input not in ('Y','y','yes','Yes','N','n','no','No',None):
+                # if the user didn't use a valid anwser
+                print('Please use y or n')
+            else:
+                if (user_input.lower()[0] == 'y') or (user_input == None):
+                    # set default port to 2323 and exit
+                    port = 2323
+                    break
+                else:
+                    # get specified port
+                    print('You\'re a picky one...')
+                    while True:
+                        try:
+                            # get optional port input
+                            user_input = int(raw_input("What port would you like to use? (must be >1024 without root permissions):"))
+                        except ValueError:
+                            # user must choose a number, show question again
+                            print("Just a port number.\n")
+                            continue
+                        else:
+                            port = user_input
+                            # break out of second loop
+                            break
+                    # break out of first loop
+                    break
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except KeyboardInterrupt:
+            print('dang..')
+        else:
+            print('Using port: '+str(port))
+            sock.bind(('',port))
+            port_name = sock.getsockname()[1]
+            print(port_name)
        #     s = socket.socket()
        # sock.bind(('', 0))
        # port = sock.getsockname()[1]
-        # function to setup server
-        print('using port: ')
 
     def get_server():
         # function to connect to a server
