@@ -2,8 +2,8 @@
 # Author: Tanner Purves, Zane Durkin
 import os
 import sys
-import getopt
-from docopt import docopt
+#import getopt
+#from docopt import docopt
 from prettytable import PrettyTable
 
 # Ask user if they want to be client or server
