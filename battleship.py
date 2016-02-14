@@ -5,6 +5,7 @@ import sys
 import socket
 #import getopt
 #from docopt import docopt
+from configobj import ConfigObj
 from prettytable import PrettyTable
 
 # Build Welcome table
@@ -14,10 +15,14 @@ welcome_table.add_row(['2) Vs. computer'])
 welcome_table.add_row(['3) Settings'])
 welcome_table.add_row(['4) Quit'])
 welcome_table.align = 'l'
+# get configuation file
+config = ConfigObj('battleship.conf')
+Ip = config['TCP_IP']
+Port = config['TCP_PORT']
+Buffer = int(config['BUFFER_SIZE'])
 try:
     def main_menu(user_input):
         if user_input == 1:
-            # print('Network')
             network_table = PrettyTable(['BATTLESHIP Networking'])
             network_table.add_row(['1) Host a game'])
             network_table.add_row(['2) Join a game'])
@@ -29,7 +34,7 @@ try:
                 print(network_table)
                 try:
                     # check that the user enterd an integer
-                    user_input = int(raw_input("Whatchu want? [1-3]: "))
+                    user_input = int(input("Whatchu want? [1-3]: "))
                 except ValueError:
                     # user must choose a number, show question again
                     print("Yo, just pick a number.\n")
@@ -74,17 +79,20 @@ try:
             print('How about no...')
 
     def set_server():
+        global Buffer
+        global Ip
+        global Port
         # funtion to setup server
         while True:
             # see if user would like to specify a port
-            user_input = raw_input("Use default port (2323)? [Y/n]: ")
+            user_input = input("Use default port ("+Port+")? [Y/n]: ")
             if user_input not in ('Y','y','yes','Yes','N','n','no','No',None):
                 # if the user didn't use a valid anwser
                 print('Please use y or n')
             else:
                 if (user_input.lower()[0] == 'y') or (user_input == None):
                     # set default port to 2323 and exit
-                    port = 2323
+                    port = int(Port)
                     break
                 else:
                     # get specified port
@@ -92,13 +100,13 @@ try:
                     while True:
                         try:
                             # get optional port input
-                            user_input = int(raw_input("What port would you like to use? (must be >1024 without root permissions):"))
+                            user_input = int(input("What port would you like to use? (must be >1024 without root permissions):"))
                         except ValueError:
                             # user must choose a number, show question again
                             print("Just a port number.\n")
                             continue
                         else:
-                            port = user_input
+                            port = int(user_input)
                             # break out of second loop
                             break
                     # break out of first loop
@@ -109,16 +117,74 @@ try:
             print('dang..')
         else:
             print('Using port: '+str(port))
-            sock.bind(('',port))
+            sock.bind((Ip, port))
             port_name = sock.getsockname()[1]
-            print(port_name)
-       #     s = socket.socket()
-       # sock.bind(('', 0))
-       # port = sock.getsockname()[1]
+            sock.listen(1)
+            print('Listening for connection...')
+            conn, addr = sock.accept()
+            print('Connection address:', addr)
+            while True:
+                data =  conn.recv(Buffer)
+                if not data: break
+                print("received data: ", data)
+                conn.send(data) #echo data back
+            conn.close()
 
     def get_server():
         # function to connect to a server
-        print('Connecting to server...')
+        while True:
+            user_input = input("What IP are you connecting to?: ")
+            try:
+                socket.inet_aton(user_input)
+            except socket.error:
+                print('Thats not a valid IP')
+                continue
+            else:
+                Ip = user_input
+                while True:
+                    user_input = input("Are we using the default port?("+Port+") [Y/n]")
+                    if user_input not in ('Y','y','yes','Yes','N','n','no','No',None):
+                        # if the user didn't use a valid anwser
+                        print('Please use y or n')
+                    else:
+                        if (user_input.lower()[0] == 'y') or (user_input == None):
+                        # set default port to 2323 and exit
+                            port = int(Port)
+                            break
+                        else:
+                            # get specified port
+                            print('You\'re a picky one...')
+                            while True:
+                                try:
+                                    # get optional port input
+                                    user_input = int(input("What port would you like to use? (must be >1024 without root permissions):"))
+                                except ValueError:
+                                    # user must choose a number, show question again
+                                    print("Just a port number.\n")
+                                    continue
+                                else:
+                                    port = int(user_input)
+                                    # break out of third loop
+                                    break
+                            # break out of second loop
+                            break
+                # break out of first loop
+                break
+        try:
+            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        except socket.error:
+            print('dang... Couldn\'t connect ')
+        else:
+            print('Connecting to server at: '+str(Ip)+':'+str(port))
+            sock.connect((Ip, port))
+            # port_name = sock.getsockname()[1]
+            data = "Joining"
+            sock.send(data.encode())
+            # conn, addr = sock.accept()
+            # print('Connection address:'+addr)
+            data = sock.recv(int(Buffer))
+            sock.close()
+            print('data recieved: ', data.decode())
 
     def main():
         # Ask user what they want
@@ -128,7 +194,7 @@ try:
         while True:
             try:
                 # check that the user enterd an integer
-                user_input = int(raw_input("Whatchu want? [1-4]: "))
+                user_input = int(input("Whatchu want? [1-4]: "))
             except ValueError:
                 # user must choose a number, show question again
                 print("Yo, just pick a number.\n")
