@@ -126,7 +126,7 @@ try:
             while True:
                 data =  conn.recv(Buffer)
                 if not data: break
-                print("received data: ", data)
+                print("received data: ", data.decode())
                 conn.send(data) #echo data back
             conn.close()
 
