@@ -9,6 +9,13 @@ import threading
 from configobj import ConfigObj
 from prettytable import PrettyTable
 
+# function for clearing screen (for both windows and linux)
+def clear():
+    if (os.name == 'nt'):
+        c = os.system('cls')
+    else:
+        c = os.system('clear')
+    del c  # can also omit c totally
 
 # function for connecting to a server
 def get_server():
@@ -25,7 +32,7 @@ def get_server():
         else:
             Ip = user_input
             while True:
-                user_input = input("Are we using the default port?("+Port+") [Y/n]")
+                user_input = input("Are we using the default port today?("+Port+") [Y/n]")
                 if user_input not in ('Y', 'y', 'yes', 'Yes', 'N', 'n', 'no', 'No', None):
                     # if the user didn't use a valid anwser
                     print('Please use y or n')
@@ -120,7 +127,8 @@ def main_menu(user_input):
         network_table.add_row(['3) Back'])
         network_table.align = 'l'
         # clear the screen
-        os.system('clear')
+        clear()
+        # os.system('clear')
         # ask for an option until a valid one is entered
         while True:
             # print the menu
@@ -231,12 +239,13 @@ def set_server():
         Serv.start()
         # don't start the game until at least one user is connected
         while True:
-            os.system('clear')
+            # os.system('clear')
+            clear()
             print('\nConnection address:' + str(Ip) + ':' + str(port) + ' \n' + 'Listening for connections...\n')
             if len(connected) > 0:
                 print(str(connected[0][0])+' Connected')
                 break
-            time.sleep(3)
+            time.sleep(1)
         while True:
             # see if user would like to specify a port
             user_input = input("Ready to Start? [Y/n]: ")
@@ -290,7 +299,7 @@ def get_ip():
         s.connect(('10.255.255.255', 0))
         IP = s.getsockname()[0]
     except:
-        IP = '127.0.0.1'
+        IP = Ip
     finally:
         s.close()
     return IP
@@ -323,9 +332,10 @@ def main():
     # get configuation file
     global config, Port, Ip, Buffer, Username
     config = ConfigObj('battleship.conf')
-    Ip = config['TCP_IP']
-    if Ip is None:
-        Ip = '127.0.0.1'
+    Ip_conf = config['TCP_IP']
+    Ip = get_ip()
+    if Ip == '127.0.0.1':
+        Ip = Ip_conf
     Port = config['TCP_PORT']
     if Port is None:
         Port = 2323
@@ -336,7 +346,8 @@ def main():
     if Username is None:
         Username = "Anonymous"
     # Ask user what they want
-    os.system('clear')
+    clear()
+    # os.system('clear')
     print(welcome_table)
     # ask for an option until a valid one is entered
     while True:
