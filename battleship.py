@@ -5,6 +5,7 @@ import re
 import time
 import socket
 import threading
+# maybe use clint instead of configobh, also adds text color
 from configobj import ConfigObj
 from prettytable import PrettyTable
 
@@ -15,8 +16,10 @@ def get_server():
     while True:
         user_input = input("What IP are you connecting to?: ")
         try:
+            # see if user entered a valid ip number
             socket.inet_aton(user_input)
         except socket.error:
+            # the ip is not valid, let user know and ask again
             print('Thats not a valid IP')
             continue
         else:
@@ -57,49 +60,72 @@ def get_server():
         print('dang... Couldn\'t connect ')
     else:
         print('Connecting to server at: '+str(Ip)+':'+str(port))
+        # connect to server
         sock.connect((Ip, port))
-        # port_name = sock.getsockname()[1]
+        # tell server that the user wants to join
         data = "Joining "+Username+" "+Ip
+        # send request to server
         sock.send(data.encode())
-        # conn, addr = sock.accept()
-        # print('Connection address:'+addr)
+        # listen for a response
         data = sock.recv(int(Buffer))
+        # let user know if they can join
         if re.match('^([Jj]oined)', data.decode()):
+            # if the server returns joined then continue
+            # split the data up to get the server's username
             info = (data.decode()).split(' ')
-            print('Joined '+info[1]+'\'s Game')
-        print('Waiting for the game to start')
-        while True:
-            data = sock.recv(int(Buffer))
-            if re.match('^[Ss]tart', data.decode()):
-                print('Game is Starting!')
-                start = True
-                break
-            elif re.match('^[Cc]ancle', data.decode()):
-                print('Game is canceled...')
-                start = False
-                sock.close()
-                break
-            else:
-                print(data.decode())
-        if start:
-            Serv = threading.Thread(target=client)
-            Serv.daemon = True
-            Serv.start()
-            game('client')
+            print('Joined '+info[1]+'\'s game')
+            connect = True
+        else:
+            # if the server denied the connection
+            print('Could not connect to game')
+            connect = False
+        if connect:
+            # after joining game, wait for game to start
+            print('Waiting for the game to start...')
+            while True:
+                # listen for new data from the server
+                data = sock.recv(int(Buffer))
+                # the server says the game is starting
+                if re.match('^[Ss]tart', data.decode()):
+                    print('\n\nGame is Starting!\n\n')
+                    # start the game on client side
+                    start = True
+                    break
+                elif re.match('^[Cc]ancle', data.decode()):
+                    # if the server canceled the game close the connection
+                    print('Game is canceled...')
+                    start = False
+                    sock.close()
+                    break
+                else:
+                    # display any other info from the server, like any other new players
+                    print(data.decode())
+            # if the server said to start
+            if start:
+                # push connectino to the background
+                Serv = threading.Thread(target=client)
+                Serv.daemon = True
+                Serv.start()
+                # start game in client mode
+                game('client')
 
 
 # function to draw the main menu
 def main_menu(user_input):
     if user_input == 1:
+        # create networking menu
         network_table = PrettyTable(['BATTLESHIP Networking'])
         network_table.add_row(['1) Host a game'])
         network_table.add_row(['2) Join a game'])
         network_table.add_row(['3) Back'])
         network_table.align = 'l'
+        # clear the screen
         os.system('clear')
         # ask for an option until a valid one is entered
         while True:
+            # print the menu
             print(network_table)
+            # wait for a valid option to be chosen
             try:
                 # check that the user enterd an integer
                 user_input = int(input("Whatchu want? [1-3]: "))
@@ -181,26 +207,24 @@ def set_server():
                         break
                 # break out of first loop
                 break
-    # print('start server')
-    # server = Start_Server('localhost', port)
-    # print('start loop')
-    # asyncore.loop()
-    # print('server started')
     try:
+        # create a global connection
         global sock
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     except socket.error:
+        # if socket could not be used
         print('dang... '+socket.error())
     else:
+        # if the the socket can be used, bind to it
         print('Using port: '+str(port))
         sock.bind((Ip, port))
-        # port_name = sock.getsockname()[1]
+        # listen to the socket
         sock.listen(1)
+        # create a global array of all that are connected
         global connected
         connected = []
+        # print address for others to connect to
         print('\nConnection address: '+str(Ip)+':'+str(port)+' \n')
-        # print('Listening for connection...')
-        # print('Connection address:', addr)
         # start server in new thread
         Serv = threading.Thread(target=server)
         Serv.daemon = True
