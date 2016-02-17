@@ -1,14 +1,10 @@
 # BattleShip (for terminal linux)
 # Author: Tanner Purves, Zane Durkin
 import os
-import sys
 import re
 import time
 import socket
 import threading
-# import asyncore
-# import getopt
-# from docopt import docopt
 from configobj import ConfigObj
 from prettytable import PrettyTable
 
@@ -234,12 +230,6 @@ def set_server():
                     print('Canceling Game...')
                     conn.send(('Canceled').encode())
                     break
-        # while True:
-        #     data = conn.recv(Buffer)
-        #     if not data:
-        #         break
-        #     print("received data: ", data.decode())
-        #     conn.send(data)  # echo data back
         conn.close()
 
 
@@ -265,6 +255,7 @@ def client():
             info = (data.decode()).split(' ')
             print('move made by '+info[1])
     conn.close()
+
 
 # function to get current user's ip on network (defaults to 127.0.0.1 if no network)
 def get_ip():
@@ -295,41 +286,6 @@ def game(typ):
             if user_input is not None:
                 conn.close()
                 break
-
-# class for starting a server and handling connections
-# class Start_Server(asyncore.dispatcher):
-#
-#    def __init__(self, host, port):
-#        asyncore.dispatcher.__init__(self)
-#        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
-#        self.set_reuse_addr()
-#        self.bind((host, port))
-#        self.listen(5)
-#
-#    def handle_connect(self):
-#        pass
-#
-#    def handle_close(self):
-#        self.close()
-#
-#    def handle_read(self):
-#        print(self.recv(8192))
-#
-#    # def writable(self):
-#    #    return (len(self.buffer) > 0)
-#
-#    def handle_accept(self):
-#        pair = self.accept()
-#        if pair is not None:
-#            sock, addr = pair
-#            print('New Connectin from %s' % repr(addr))
-#            handler = sock.recv(Buffer)
-#            if  handler:
-#                self.send('recieved')
-#
-#    def handle_write(self):
-#        sent = self.send(self.buffer)
-#        self.buffer = self.buffer[sent:]
 
 
 def main():
