@@ -19,7 +19,6 @@ except ImportError:
     try:
         import msvcrt
     except ImportError:
-        # FIXME what to do on other platforms?
         # Just give up here.
         raise ImportError('getch not available')
     else:
@@ -360,12 +359,7 @@ def game(typ):
 
     if typ == 'client':
         place_board()
-        while True:
-            user_input = input('end of the line')
-            if user_input is not None:
-                sock.close()
-                break
-    if typ == 'server':
+    elif typ == 'server':
         place_board()
 
 # draw game board with the ablitiy to move peices around
@@ -397,8 +391,10 @@ def place_board():
     while True:
         char = getch()
         if char == 'q':
+            print('quitting')
             break
         elif char =='qqq':
+            print('qutting')
             break
         elif char =='\x1b':
             char2 = getch()
@@ -427,13 +423,15 @@ def place_board():
             print('rotate')
             clear_ship(ship1)
             ship1.turn()
+        else:
+            print(char)
 
         if char != '':
             board[ship1.location[0][0]][ship1.location[0][1]] = ship1.chars()[0]
             board[ship1.location[1][0]][ship1.location[1][1]] = ship1.chars()[1]
             board[ship1.location[2][0]][ship1.location[2][1]] = ship1.chars()[2]
             clear()
-            place_board()
+            draw_board()
             print ("Place Your Ship!")
 
 def main():
