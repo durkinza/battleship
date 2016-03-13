@@ -2,12 +2,53 @@
 # Author: Tanner Purves, Zane Durkin
 import os
 import re
+import sys
 import time
 import socket
 import threading
+import ships
 # maybe use clint instead of configobh, also adds text color
 from configobj import ConfigObj
 from prettytable import PrettyTable
+
+# settup getch() for both unix and windows
+try:
+    import tty
+    import termios
+except ImportError:
+    # Probably Windows.
+    try:
+        import msvcrt
+    except ImportError:
+        # Just give up here.
+        raise ImportError('getch not available')
+    else:
+        getch = msvcrt.getch
+else:
+    def getch():
+        """getch() -> key character
+         Read a single keypress from stdin and return the resulting character.
+        Nothing is echoed to the console. This call will block if a keypress
+        is not already available, but will not wait for Enter to be pressed.
+         If the pressed key was a modifier key, nothing will be detected; if
+        it were a special function key, it may return the first character of
+        of an escape sequence, leaving additional characters in the buffer.
+        """
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+# function for clearing a ship's current spot on the board
+def clear_ship(shp):
+    for i in shp.location:
+        board[i[0]][i[1]] = placed_board[i[0]][i[1]]
+
 
 # function for clearing screen (for both windows and linux)
 def clear():
@@ -16,6 +57,7 @@ def clear():
     else:
         c = os.system('clear')
     del c  # can also omit c totally
+
 
 # function for connecting to a server
 def get_server():
@@ -174,8 +216,16 @@ def main_menu(user_input):
         print('How about no...')
     elif user_input == 4:
         # if the user wants to quit
+        try:
+            Serv.daemon = False
+        except NameError:
+            print()
+        try:
+            conn.close()
+        except NameError:
+            print()
         print('You quitter...')
-        exit()
+        exit(2)
     else:
         # if something gets past the validation
         print('How about no...')
@@ -258,8 +308,7 @@ def set_server():
                     conn.send(('starting').encode())
                     game('server')
                     break
-                else:
-                    # Canceling game
+                else:    # Canceling game
                     print('Canceling Game...')
                     conn.send(('Canceled').encode())
                     break
@@ -291,7 +340,7 @@ def client():
 
 
 # function to get current user's ip on network (defaults to 127.0.0.1 if no network)
-def get_ip():
+def get_ip(ip):
     # function to get the user's ip on network
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
@@ -299,26 +348,138 @@ def get_ip():
         s.connect(('10.255.255.255', 0))
         IP = s.getsockname()[0]
     except:
-        IP = Ip
+        IP = ip
     finally:
         s.close()
     return IP
 
 
+def set_ship(shp):
+    # sets the ship's location into the map
+    j = 0
+    for i in shp.location:
+        placed_board[i[0]][i[1]] = shp.chars()[j]
+        j = j + 1
+
+
 # function to draw gameboard(s)
 def game(typ):
-    if typ == 'client':
-        while True:
-            user_input = input('end of the line')
-            if user_input is not None:
-                sock.close()
+    global board
+    global ship1
+    global placed_board
+    # create empty array for the board
+    board = []
+    placed_board = []
+    # create all ship objects
+    ship1 = ships.Ship1()
+    ship2 = ships.Ship2()
+    # fill board array with empty strings
+    for x in range(0, 10):
+        board.append(['', '', '', '', '', '', '', '', '', ''])
+        placed_board.append(['', '', '', '', '', '', '', '', '', ''])
+
+    # place the first ship
+    place_board(ship1)
+    # set the first ship on board
+    set_ship(ship1)
+    # place the second ship
+    place_board(ship2)
+    # place the second ship on board
+    set_ship(ship2)
+
+    # if typ == 'client':
+    #     place the first ship
+    #     place_board(ship1)
+    #     set the first ship on board
+    #     set_ship(ship1)
+    #     place the second ship
+    #     place_board(ship2)
+    #     place the second ship on board
+    #     set_ship(ship2)
+    # elif typ == 'server':
+    #     place_board(ship1)
+    #     set_ship(ship1)
+    #     place_board(ship2)
+    #     set_ship(ship2)
+    #     get random user to start with
+
+
+# draw game board with the ablitiy to move peices around
+def draw_board():
+    set_board = PrettyTable()
+    set_board.horizontal_char = '~'
+    set_board.vertical_char = '|'
+    set_board.add_column("#", ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'])
+    set_board.add_column('A', board[0])
+    set_board.add_column('B', board[1])
+    set_board.add_column('C', board[2])
+    set_board.add_column('D', board[3])
+    set_board.add_column('E', board[4])
+    set_board.add_column('F', board[5])
+    set_board.add_column('G', board[6])
+    set_board.add_column('H', board[7])
+    set_board.add_column('I', board[8])
+    set_board.add_column('J', board[9])
+    print(set_board)
+
+
+def place_board(shp):
+    for i in shp.location:
+        board[shp.location[i[0]][0]][shp.location[i[0]][1]] = shp.chars()[i[0]]
+    # board[shp.location[0][0]][shp.location[0][1]] = shp.chars()[0]
+    # board[shp.location[1][0]][shp.location[1][1]] = shp.chars()[1]
+    # board[shp.location[2][0]][shp.location[2][1]] = shp.chars()[2]
+    draw_board()
+    print("Place Your Ship!")
+    while True:
+        char = getch()
+        if char == 'q':
+            print('quitting')
+            break
+        elif char == 'qqq':
+            print('qutting')
+            break
+        elif char == '\x1b':
+            char2 = getch()
+            if char2 != '[':
                 break
-    if typ == 'server':
-        while True:
-            user_input = input('end of the line')
-            if user_input is not None:
-                conn.close()
-                break
+            char3 = getch()
+            if char3 == 'A':
+                print('Up')
+                clear_ship(shp)
+                shp.up(placed_board)
+            elif char3 == 'B':
+                print('Down')
+                clear_ship(shp)
+                shp.down(placed_board)
+            elif char3 == 'C':
+                print('Right')
+                clear_ship(shp)
+                shp.right(placed_board)
+            elif char3 == 'D':
+                print('Left')
+                clear_ship(shp)
+                shp.left(placed_board)
+            else:
+                print('We don\'t accept those keys here')
+        elif char == 'r':
+            print('rotate')
+            clear_ship(shp)
+            shp.turn(placed_board)
+        else:
+            print(char)
+
+        if char != '':
+            j = 0
+            for i in shp.location:
+                board[i[0]][i[1]] = shp.chars()[j]
+                j = j+1
+            # board[shp.location[0][0]][shp.location[0][1]] = shp.chars()[0]
+            # board[shp.location[1][0]][shp.location[1][1]] = shp.chars()[1]
+            # board[shp.location[2][0]][shp.location[2][1]] = shp.chars()[2]
+            clear()
+            draw_board()
+            print ("Place Your Ship!")
 
 
 def main():
@@ -333,7 +494,7 @@ def main():
     global config, Port, Ip, Buffer, Username
     config = ConfigObj('battleship.conf')
     Ip_conf = config['TCP_IP']
-    Ip = get_ip()
+    Ip = get_ip(Ip_conf)
     if Ip == '127.0.0.1':
         Ip = Ip_conf
     Port = config['TCP_PORT']
@@ -368,8 +529,17 @@ def main():
                 main_menu(user_input)
 try:
     if __name__ == "__main__":
+        board = ()
         main()
 
 except KeyboardInterrupt:
+    try:
+        Serv.daemon = False
+    except NameError:
+        print()
+    try:
+        conn.close()
+    except NameError:
+        print()
     print("\nUntil next time")
-    exit()
+    exit(2)
