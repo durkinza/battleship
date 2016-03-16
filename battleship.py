@@ -156,7 +156,6 @@ def get_server():
                 Serv.daemon = True
                 Serv.start()
                 # start game in client mode
-                game('client')
 
 
 # function to draw the main menu
@@ -193,10 +192,27 @@ def main_menu(user_input):
                     if user_input == 1:
                         print('Setting up server')
                         set_server()
+                        while True:
+                            # see if user would like to specify a port
+                            user_input = input("Ready to Start? [Y/n]: ")
+                            if user_input not in ('Y', 'y', 'yes', 'Yes', 'N', 'n', 'no', 'No', None):
+                                # if the user didn't use a valid anwser
+                                print('Please use y or n')
+                            else:
+                                if (user_input.lower()[0] == 'y') or (user_input is None):
+                                    # tell everyone the game is starting
+                                    conn.send(('starting').encode())
+                                    game('server')
+                                    break
+                                else:    # Canceling game
+                                    print('Canceling Game...')
+                                    conn.send(('Canceled').encode())
+                                    break
                         # os.system('clear')
                     elif user_input == 2:
                         print('Connecting to server')
                         get_server()
+                        game('client')
                         # os.system('clear')
                     elif user_input == 3:
                         # if the user wants to go back to main menu
@@ -296,28 +312,12 @@ def set_server():
                 print(str(connected[0][0])+' Connected')
                 break
             time.sleep(1)
-        while True:
-            # see if user would like to specify a port
-            user_input = input("Ready to Start? [Y/n]: ")
-            if user_input not in ('Y', 'y', 'yes', 'Yes', 'N', 'n', 'no', 'No', None):
-                # if the user didn't use a valid anwser
-                print('Please use y or n')
-            else:
-                if (user_input.lower()[0] == 'y') or (user_input is None):
-                    # tell everyone the game is starting
-                    conn.send(('starting').encode())
-                    game('server')
-                    break
-                else:    # Canceling game
-                    print('Canceling Game...')
-                    conn.send(('Canceled').encode())
-                    break
-        conn.close()
+        # conn.close()
 
 
 # function to run in background for server
 def server():
-    global connected, conn
+    global connected, conn, other_ready
     conn, addr = sock.accept()
     while True:
         data = conn.recv(int(Buffer))
@@ -325,17 +325,43 @@ def server():
             info = (data.decode()).split(' ')
             connected.append([info[1], info[2]])
             conn.send(('Joined '+Username).encode())
+        elif re.match('^'+Username+'/i', data.decode()):
+            info = (data.decode()).split(' ')
+            if re.match('shot/i', info[1]):
+                print(Username+' shot '+info[3])
+            else:
+                print('unknown: '+info[1])
+        elif re.match('^(ready)', data.decode()):
+            info = (data.decode()).split(' ')
+            print(info[1]+' is ready')
+            other_ready = True
+        else:
+            print(data.decode())
     # should be used when connection is closed
     conn.close()
 
 
 # funtion to run in background for lient
 def client():
+    global connected, conn, other_ready
     while True:
         data = sock.recv(int(Buffer))
         if re.match('^[Mm]ove', data.decode()):
             info = (data.decode()).split(' ')
             print('move made by '+info[1])
+        elif re.match('^'+Username+'/i', data.decode()):
+            info = (data.decode()).split(' ')
+            if re.match('shot/i', info[1]):
+                print(Username+' shot '+info[3])
+            else:
+                print('unknown: '+info[1])
+                game('client')
+        elif re.match('^(ready)', data.decode()):
+            info = (data.decode()).split(' ')
+            print(info[1]+' is ready')
+            other_ready = True
+        else:
+            print(data.decode())
     conn.close()
 
 
@@ -367,6 +393,8 @@ def game(typ):
     global board
     global ship1
     global placed_board
+    global other_ready
+    other_ready = False
     # create empty array for the board
     board = []
     placed_board = []
@@ -386,23 +414,33 @@ def game(typ):
     place_board(ship2)
     # place the second ship on board
     set_ship(ship2)
+    # set variable to see if others are ready
+    if not other_ready:
+        print('Waiting for other(s)')
+        if typ == 'client':
+            sock.send(('ready '+Username).encode())
+        else:
+            conn.send(('ready '+Username).encode())
+        wait()
 
-    # if typ == 'client':
-    #     place the first ship
-    #     place_board(ship1)
-    #     set the first ship on board
-    #     set_ship(ship1)
-    #     place the second ship
-    #     place_board(ship2)
-    #     place the second ship on board
-    #     set_ship(ship2)
-    # elif typ == 'server':
-    #     place_board(ship1)
-    #     set_ship(ship1)
-    #     place_board(ship2)
-    #     set_ship(ship2)
-    #     get random user to start with
-
+def wait():
+    i = 0
+    j = 0
+    while not other_ready:
+        i = i + 1
+        if(i % 10)==0:
+            j = j + 1
+            if j % 9 == 0:
+                print('Yay, It\'s starting ... jk')
+            elif j%3 == 0:
+                print('waiting != fun...')
+            elif j%2 == 0:
+                print('Isin\'t this fun!?!')
+            else:
+                print('Gotta love waiting...')
+        else:
+            print('.'*i)
+        time.sleep(1)
 
 # draw game board with the ablitiy to move peices around
 def draw_board():
