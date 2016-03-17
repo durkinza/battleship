@@ -155,7 +155,10 @@ def get_server():
                 Serv = threading.Thread(target=client)
                 Serv.daemon = True
                 Serv.start()
+                return True
                 # start game in client mode
+            else:
+                return False
 
 
 # function to draw the main menu
@@ -191,28 +194,17 @@ def main_menu(user_input):
                     # the number is valid, continue
                     if user_input == 1:
                         print('Setting up server')
-                        set_server()
-                        while True:
-                            # see if user would like to specify a port
-                            user_input = input("Ready to Start? [Y/n]: ")
-                            if user_input not in ('Y', 'y', 'yes', 'Yes', 'N', 'n', 'no', 'No', None):
-                                # if the user didn't use a valid anwser
-                                print('Please use y or n')
-                            else:
-                                if (user_input.lower()[0] == 'y') or (user_input is None):
-                                    # tell everyone the game is starting
-                                    conn.send(('starting').encode())
-                                    game('server')
-                                    break
-                                else:    # Canceling game
-                                    print('Canceling Game...')
-                                    conn.send(('Canceled').encode())
-                                    break
-                        # os.system('clear')
+                        if set_server():
+                            if setup('server'):
+                                print('starting game')
+                                # game()
+                                # os.system('clear')
                     elif user_input == 2:
                         print('Connecting to server')
-                        get_server()
-                        game('client')
+                        if get_server():
+                            if setup('client'):
+                                print('starting game')
+                                # game()
                         # os.system('clear')
                     elif user_input == 3:
                         # if the user wants to go back to main menu
@@ -313,6 +305,24 @@ def set_server():
                 break
             time.sleep(1)
         # conn.close()
+        while True:
+            # see if user would like to specify a port
+            user_input = input("Ready to Start? [Y/n]: ")
+            if user_input not in ('Y', 'y', 'yes', 'Yes', 'N', 'n', 'no', 'No', None):
+                # if the user didn't use a valid anwser
+                print('Please use y or n')
+            else:
+                if (user_input.lower()[0] == 'y') or (user_input is None):
+                    # tell everyone the game is starting
+                    conn.send(('starting').encode())
+                    return True
+                    break
+                else:    # Canceling game
+                    print('Canceling Game...')
+                    conn.send(('Canceled').encode())
+                    break
+        return False
+
 
 
 # function to run in background for server
@@ -355,7 +365,6 @@ def client():
                 print(Username+' shot '+info[3])
             else:
                 print('unknown: '+info[1])
-                game('client')
         elif re.match('^(ready)', data.decode()):
             info = (data.decode()).split(' ')
             print(info[1]+' is ready')
@@ -389,7 +398,7 @@ def set_ship(shp):
 
 
 # function to draw gameboard(s)
-def game(typ):
+def setup(typ):
     global board
     global ship1
     global placed_board
@@ -407,23 +416,30 @@ def game(typ):
         placed_board.append(['', '', '', '', '', '', '', '', '', ''])
 
     # place the first ship
-    place_board(ship1)
+    if not place_board(ship1):
+        return False
     # set the first ship on board
     set_ship(ship1)
     # place the second ship
-    place_board(ship2)
+    if not place_board(ship2):
+        return False
     # place the second ship on board
     set_ship(ship2)
+    import pdb
+    pdb.set_trace()
     # set variable to see if others are ready
+    if typ == 'client':
+        sock.send(('ready '+Username).encode())
+    else:
+        conn.send(('ready '+Username).encode())
     if not other_ready:
         print('Waiting for other(s)')
-        if typ == 'client':
-            sock.send(('ready '+Username).encode())
-        else:
-            conn.send(('ready '+Username).encode())
         wait()
+    return True
+
 
 def wait():
+    global other_ready
     i = 0
     j = 0
     while not other_ready:
@@ -473,10 +489,10 @@ def place_board(shp):
         char = getch()
         if char == 'q':
             print('quitting')
-            break
-        elif char == 'qqq':
-            print('qutting')
-            break
+            return False
+        elif char == '\x0D':
+            print('placing ship')
+            return True
         elif char == '\x1b':
             char2 = getch()
             if char2 != '[':
