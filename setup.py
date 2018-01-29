@@ -10,9 +10,10 @@ my_requirements = [str(req.req) for req in requirements]
 setup(
     name='battleship',
     version = battleship_version,
-    description="Python console version of battleship.",
+    description='Python console version of battleship.',
     author='Tanner Purves, Zane Durkin',
-    author_email='purvesta0704@gmail.com',
+    author_email='purvesta0704@gmail.com, zanedurkin@gmail.com',
+    url='https://github.com/durkinza/battleship',
     packages=find_packages(exclude=['tests*']),
     install_requires=my_requirements
 )
