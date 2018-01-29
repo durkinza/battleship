@@ -556,7 +556,10 @@ def main():
     welcome_table.align = 'l'
     # get configuation file
     global config, Port, Ip, Buffer, Username, comment
-    config = ConfigObj('battleship.conf')
+
+    import pdb
+    pdb.set_trace()
+    config = ConfigObj('../battleship.conf')
     Ip_conf = config['TCP_IP']
     Ip = get_ip(Ip_conf)
     if Ip == '127.0.0.1':
