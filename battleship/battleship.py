@@ -2,12 +2,53 @@
 # Author: Tanner Purves, Zane Durkin
 import os
 import re
+import sys
 import time
 import socket
 import threading
+import ships
 # maybe use clint instead of configobh, also adds text color
 from configobj import ConfigObj
 from prettytable import PrettyTable
+
+# settup getch() for both unix and windows
+try:
+    import tty
+    import termios
+except ImportError:
+    # Probably Windows.
+    try:
+        import msvcrt
+    except ImportError:
+        # Just give up here.
+        raise ImportError('getch not available')
+    else:
+        getch = msvcrt.getch
+else:
+    def getch():
+        """getch() -> key character
+         Read a single keypress from stdin and return the resulting character.
+        Nothing is echoed to the console. This call will block if a keypress
+        is not already available, but will not wait for Enter to be pressed.
+         If the pressed key was a modifier key, nothing will be detected; if
+        it were a special function key, it may return the first character of
+        of an escape sequence, leaving additional characters in the buffer.
+        """
+        fd = sys.stdin.fileno()
+        old_settings = termios.tcgetattr(fd)
+        try:
+            tty.setraw(fd)
+            ch = sys.stdin.read(1)
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
+        return ch
+
+
+# function for clearing a ship's current spot on the board
+def clear_ship(shp):
+    for i in shp.location:
+        board[i[0]][i[1]] = placed_board[i[0]][i[1]]
+
 
 # function for clearing screen (for both windows and linux)
 def clear():
@@ -16,6 +57,7 @@ def clear():
     else:
         c = os.system('clear')
     del c  # can also omit c totally
+
 
 # function for connecting to a server
 def get_server():
@@ -113,8 +155,10 @@ def get_server():
                 Serv = threading.Thread(target=client)
                 Serv.daemon = True
                 Serv.start()
+                return True
                 # start game in client mode
-                game('client')
+            else:
+                return False
 
 
 # function to draw the main menu
@@ -128,7 +172,6 @@ def main_menu(user_input):
         network_table.align = 'l'
         # clear the screen
         clear()
-        # os.system('clear')
         # ask for an option until a valid one is entered
         while True:
             # print the menu
@@ -150,12 +193,16 @@ def main_menu(user_input):
                     # the number is valid, continue
                     if user_input == 1:
                         print('Setting up server')
-                        set_server()
-                        # os.system('clear')
+                        if set_server():
+                            if setup('server'):
+                                print('starting game')
+                                # game()
                     elif user_input == 2:
                         print('Connecting to server')
-                        get_server()
-                        # os.system('clear')
+                        if get_server():
+                            if setup('client'):
+                                print('starting game')
+                                # game()
                     elif user_input == 3:
                         # if the user wants to go back to main menu
                         print('going back')
@@ -174,8 +221,16 @@ def main_menu(user_input):
         print('How about no...')
     elif user_input == 4:
         # if the user wants to quit
+        try:
+            Serv.daemon = False
+        except NameError:
+            print()
+        try:
+            conn.close()
+        except NameError:
+            print()
         print('You quitter...')
-        exit()
+        exit(2)
     else:
         # if something gets past the validation
         print('How about no...')
@@ -183,9 +238,6 @@ def main_menu(user_input):
 
 # function to create server and get connections
 def set_server():
-    # global Buffer
-    # global Ip
-    # global Port
     # funtion to setup server
     while True:
         # see if user would like to specify a port
@@ -246,6 +298,7 @@ def set_server():
                 print(str(connected[0][0])+' Connected')
                 break
             time.sleep(1)
+        # conn.close()
         while True:
             # see if user would like to specify a port
             user_input = input("Ready to Start? [Y/n]: ")
@@ -256,19 +309,18 @@ def set_server():
                 if (user_input.lower()[0] == 'y') or (user_input is None):
                     # tell everyone the game is starting
                     conn.send(('starting').encode())
-                    game('server')
+                    return True
                     break
-                else:
-                    # Canceling game
+                else:    # Canceling game
                     print('Canceling Game...')
                     conn.send(('Canceled').encode())
                     break
-        conn.close()
+        return False
 
 
 # function to run in background for server
 def server():
-    global connected, conn
+    global connected, conn, other_ready, comment
     conn, addr = sock.accept()
     while True:
         data = conn.recv(int(Buffer))
@@ -276,50 +328,223 @@ def server():
             info = (data.decode()).split(' ')
             connected.append([info[1], info[2]])
             conn.send(('Joined '+Username).encode())
+        elif re.match('^'+Username+'/i', data.decode()):
+            info = (data.decode()).split(' ')
+            if re.match('shot/i', info[1]):
+                print(Username+' shot '+info[3])
+            else:
+                print('unknown: '+info[1])
+        elif re.match('^(ready)', data.decode()):
+            info = (data.decode()).split(' ')
+            comment = comment+(' '+info[1]+' is ready')
+            other_ready = True
+        else:
+            print(data.decode())
     # should be used when connection is closed
     conn.close()
 
 
-# funtion to run in background for lient
+# funtion to run in background for client
 def client():
+    global connected, conn, other_ready, comment
     while True:
         data = sock.recv(int(Buffer))
         if re.match('^[Mm]ove', data.decode()):
             info = (data.decode()).split(' ')
             print('move made by '+info[1])
+        elif re.match('^'+Username+'/i', data.decode()):
+            info = (data.decode()).split(' ')
+            if re.match('shot/i', info[1]):
+                print(Username+' shot '+info[3])
+            else:
+                print('unknown: '+info[1])
+        elif re.match('^(ready)', data.decode()):
+            info = (data.decode()).split(' ')
+            comment = comment+(' '+info[1]+' is ready')
+            other_ready = True
+        else:
+            print(data.decode())
     conn.close()
 
 
 # function to get current user's ip on network (defaults to 127.0.0.1 if no network)
-def get_ip():
+def get_ip(ip):
     # function to get the user's ip on network
     s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     try:
         # doesn't even have to be reachable
         s.connect(('10.255.255.255', 0))
-        ip = s.getsockname()[0]
+        IP = s.getsockname()[0]
     except:
-        ip = '127.0.0.1'
+        IP = ip
     finally:
         s.close()
-    return ip
+    return IP
+
+
+def set_ship(shp):
+    # sets the ship's location into the map
+    j = 0
+    for i in shp.location:
+        placed_board[i[0]][i[1]] = shp.chars()[j]
+        j = j + 1
 
 
 # function to draw gameboard(s)
-def game(typ):
-    if typ == 'client':
-        while True:
-            user_input = input('end of the line')
-            if user_input is not None:
-                sock.close()
-                break
-    if typ == 'server':
-        while True:
-            user_input = input('end of the line')
-            if user_input is not None:
-                conn.close()
-                break
+def setup(typ):
+    global board, ship1, placed_board, other_ready, comment
+    other_ready = False
+    # create empty array for the board
+    board = []
+    placed_board = []
+    # create all ship objects
+    ship1 = ships.Ship1()
+    ship2 = ships.Ship2()
+    # fill board array with empty strings
+    for x in range(0, 10):
+        board.append(['', '', '', '', '', '', '', '', '', ''])
+        placed_board.append(['', '', '', '', '', '', '', '', '', ''])
 
+    # place the first ship
+    if not place_board(ship1):
+        return False
+    # set the first ship on board
+    set_ship(ship1)
+    # place the second ship
+    if not place_board(ship2):
+        return False
+    # place the second ship on board
+    set_ship(ship2)
+    # set variable to see if others are ready
+    if typ == 'client':
+        sock.send(('ready '+Username).encode())
+    else:
+        conn.send(('ready '+Username).encode())
+    if not other_ready:
+        print('Waiting for other(s)')
+        wait()
+    comment = ''
+    return True
+
+
+def wait():
+    global other_ready
+    i = 0
+    j = 0
+    while not other_ready:
+        i = i + 1
+        if(i % 10)==0:
+            j = j + 1
+            if j % 9 == 0:
+                print('Yay, It\'s starting ... jk')
+            elif j%3 == 0:
+                print('waiting != fun...')
+            elif j%2 == 0:
+                print('Isin\'t this fun!?!')
+            else:
+                print('Gotta love waiting...')
+        else:
+            print('.'*i)
+        time.sleep(1)
+
+# draw game board with the ablitiy to move peices around
+def draw_board(cmt=''):
+    global comment
+    set_board = PrettyTable()
+    set_board.horizontal_char = '~'
+    set_board.vertical_char = '|'
+    set_board.add_column("#", ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'])
+    set_board.add_column('A', board[0])
+    set_board.add_column('B', board[1])
+    set_board.add_column('C', board[2])
+    set_board.add_column('D', board[3])
+    set_board.add_column('E', board[4])
+    set_board.add_column('F', board[5])
+    set_board.add_column('G', board[6])
+    set_board.add_column('H', board[7])
+    set_board.add_column('I', board[8])
+    set_board.add_column('J', board[9])
+    print(set_board)
+    print(cmt)
+    print(comment)
+
+def place_board(shp):
+    global comment
+    for i in shp.location:
+        board[shp.location[i[0]][0]][shp.location[i[0]][1]] = shp.chars()[i[0]]
+    draw_board()
+    banner = 'Place Your Ship!'
+    # print("Place Your Ship!")
+    while True:
+        char = getch()
+        if char == 'q':
+            print('quitting')
+            return False
+        elif char == '\x0D':
+            print('placing ship')
+            return True
+        elif char == '\x1b':
+            char2 = getch()
+            if char2 != '[':
+                break
+            char3 = getch()
+            if char3 == 'A':
+                # print('Up')
+                clear_ship(shp)
+                shp.up(placed_board)
+                banner = ''
+            elif char3 == 'B':
+                # print('Down')
+                clear_ship(shp)
+                shp.down(placed_board)
+                banner = ''
+            elif char3 == 'C':
+                # print('Right')
+                clear_ship(shp)
+                shp.right(placed_board)
+                banner = ''
+            elif char3 == 'D':
+                # print('Left')
+                clear_ship(shp)
+                shp.left(placed_board)
+                banner = ''
+            else:
+                print('We don\'t accept those keys here')
+        elif char == 'w':
+            # print('Up')
+            clear_ship(shp)
+            shp.up(placed_board)
+            banner = ''
+        elif char == 's':
+            # print('Down')
+            clear_ship(shp)
+            shp.down(placed_board)
+            banner = ''
+        elif char == 'd':
+            # print('Right')
+            clear_ship(shp)
+            shp.right(placed_board)
+            banner = ''
+        elif char == 'a':
+            # print('Left')
+            clear_ship(shp)
+            shp.left(placed_board)
+            banner = ''
+        elif (char == 'r') or (char == ' '):
+            # print('rotate')
+            clear_ship(shp)
+            shp.turn(placed_board)
+            banner=''
+        else:
+            print(char)
+
+        if char != '':
+            j = 0
+            for i in shp.location:
+                board[i[0]][i[1]] = shp.chars()[j]
+                j = j+1
+            clear()
+            draw_board(banner)
 
 def main():
     # Build Welcome table
@@ -330,12 +555,10 @@ def main():
     welcome_table.add_row(['4) Quit'])
     welcome_table.align = 'l'
     # get configuation file
-    import pdb
-    pdb.set_trace()
-    global config, Port, Ip, Buffer, Username
+    global config, Port, Ip, Buffer, Username, comment
     config = ConfigObj('battleship.conf')
     Ip_conf = config['TCP_IP']
-    Ip = get_ip()
+    Ip = get_ip(Ip_conf)
     if Ip == '127.0.0.1':
         Ip = Ip_conf
     Port = config['TCP_PORT']
@@ -347,6 +570,7 @@ def main():
     Username = config['USERNAME']
     if Username is None:
         Username = "Anonymous"
+    comment = ''
     # Ask user what they want
     clear()
     # os.system('clear')
@@ -370,8 +594,17 @@ def main():
                 main_menu(user_input)
 try:
     if __name__ == "__main__":
+        board = ()
         main()
 
 except KeyboardInterrupt:
+    try:
+        Serv.daemon = False
+    except NameError:
+        print()
+    try:
+        conn.close()
+    except NameError:
+        print()
     print("\nUntil next time")
-    exit()
+    exit(2)
